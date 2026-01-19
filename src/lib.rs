@@ -1,7 +1,7 @@
 use actix_web::{ get, web, HttpResponse, Responder };
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(serde::Deserialize)]
 struct CalcQuery {
     operation: String,
     a: f64,
@@ -16,24 +16,24 @@ pub struct CalcResponse {
     pub result: f64,
 }
 
+const SUPPORTED_OPERATIONS: &str = "add, subtract, multiply, divide, power/pow, modulo/mod";
+
+fn op_symbol(operation: & str) -> &'static str {
+    match operation.to_lowercase().as_str() {
+        "add"      => "+",
+        "subtract" => "−",
+        "multiply" => "×",
+        "divide"   => "÷",
+        "power"  | "pow" => "^",
+        "modulo" | "mod" => "%",
+        _          => "?",
+    }
+}
 
 #[get("/calculate")]
-async fn calculate(query: web::Query<CalcQuery>) -> impl Responder {
-    fn op_symbol(operation: & str) -> &'static str {
-        match operation.to_lowercase().as_str() {
-            "add"      => "+",
-            "subtract" => "-",
-            "multiply" => "*",
-            "divide"   => "/",
-            "power"  | "pow" => "^",
-            "modulo" | "mod" => "%",
-            _          => "?",
-        }
-    }
+pub async fn calculate(query: web::Query<CalcQuery>) -> impl Responder {
     
     let CalcQuery { operation, a, b } = query.into_inner();
-
-    println!("Calculating {} {} {}", a, op_symbol(&operation), b);
 
     let result = match operation.to_lowercase().as_str() {
         "add"      => a + b,
@@ -41,19 +41,26 @@ async fn calculate(query: web::Query<CalcQuery>) -> impl Responder {
         "multiply" => a * b,
         "divide"   => {
             if b == 0.0 {
-                return HttpResponse::BadRequest().body("Division by zero is not permitted");
+                return HttpResponse::BadRequest()
+                    .json(serde_json::json!({"error": "Division by zero is not permitted"}))
             }
             a / b
         }
         "power"  | "pow" => a.powf(b),
         "modulo" | "mod" => {
             if b == 0.0 {
-                return HttpResponse::BadRequest().body("Modulo by zero is not permitted")
+                return HttpResponse::BadRequest()
+                    .json(serde_json::json!({"error": "Modulo by zero is not permitted"}))
             }
             a % b
         }
         _ => {
-            return HttpResponse::BadRequest().body(format!("Unknown Operation: '{}'. Supported: add, subtract, multiply, divide", operation))
+            return HttpResponse::BadRequest()
+                    .json(serde_json::json!({
+                        "error": format!("Unknown Operation '{}'", operation),
+                        "supported": SUPPORTED_OPERATIONS
+                    })
+                )
         }
     };
 
@@ -61,19 +68,18 @@ async fn calculate(query: web::Query<CalcQuery>) -> impl Responder {
 
     let response = CalcResponse{
         a: a, 
-        symbol: symbol.clone(),
+        symbol: symbol,
         b: b, 
         result: result
     };
 
-    println!("{} {} {} = {}", a, symbol.clone(), b, result);
     HttpResponse::Ok().json(response)
 }
 
 
 
 #[get("/")]
-async fn hello() -> impl Responder {
+pub async fn hello() -> impl Responder {
     println!("Hello from your Rust Calculator API!");
     HttpResponse::Ok().body("Hello from your Rust Calculator API! 🚀\n\
          Try examples:\n\

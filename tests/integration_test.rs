@@ -7,7 +7,7 @@ mod tests {
     use actix_web::{test, App};
 
     #[actix_web::test]
-    async fn test_add() {
+    async fn test_calculate_add() {
         let app = test::init_service(
             App::new()
                 .service(hello)
@@ -15,7 +15,7 @@ mod tests {
         ).await;
 
         let req = test::TestRequest::get()
-            .uri("operation=add&a=5&b=3")
+            .uri("/calculate?operation=add&a=5&b=3")
             .to_request();
         
         let resp = test::call_service(&app, req).await;
